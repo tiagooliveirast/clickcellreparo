@@ -1,21 +1,43 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-const publicPaths = ["/login", "/logout"]
-const publicSlugPattern = /^\/([a-z0-9-]+)(?:\/solicitar-coleta|\/rastrear)?$/
+const DASHBOARD_ROUTES = [
+  "/master", "/tecnico", "/franqueado", "/motoboy",
+  "/unidades", "/financeiro", "/equipe", "/clientes", "/ai",
+  "/ordens",
+]
+const PUBLIC_PATHS = ["/login", "/logout", "/_not-found"]
+const PUBLIC_PREFIXES = ["/api/auth"]
 
-export function proxy(request: NextRequest) {
+const PUBLIC_SLUG_PATTERN = /^\/([a-z0-9-]+)(?:\/(solicitar-coleta|rastrear))?$/
+
+function isDashboardRoute(pathname: string): boolean {
+  return DASHBOARD_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  )
+}
+
+function isPublicSlugRoute(pathname: string): boolean {
+  return PUBLIC_SLUG_PATTERN.test(pathname) && !isDashboardRoute(pathname)
+}
+
+function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_PATHS.includes(pathname)) return true
+  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return true
+  if (isPublicSlugRoute(pathname)) return true
+  return false
+}
+
+export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  const isPublicPath = publicPaths.includes(pathname) || publicSlugPattern.test(pathname)
-  const isApiAuth = pathname.startsWith("/api/auth") || pathname === "/api/auth/signin"
-
-  if (isPublicPath || isApiAuth) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next()
   }
 
-  const token = request.cookies.get("next-auth.session-token")?.value
-    || request.cookies.get("__Secure-next-auth.session-token")?.value
+  const token =
+    request.cookies.get("next-auth.session-token")?.value ||
+    request.cookies.get("__Secure-next-auth.session-token")?.value
 
   if (!token) {
     const loginUrl = new URL("/login", request.url)

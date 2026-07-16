@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, FormEvent } from "react"
-export const dynamic = "force-dynamic"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/Button"

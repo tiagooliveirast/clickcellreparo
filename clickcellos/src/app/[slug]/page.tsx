@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import { FiSmartphone, FiMapPin, FiMessageCircle } from "react-icons/fi"
 import Link from "next/link"
+import { prisma } from "@/lib/prisma"
 
 interface UnidadeData {
   nomeFantasia: string
@@ -12,10 +13,17 @@ interface UnidadeData {
 
 async function getUnidade(slug: string): Promise<UnidadeData | null> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const res = await fetch(`${baseUrl}/api/public/${slug}`, { cache: "no-store" })
-    if (!res.ok) return null
-    return res.json()
+    const unidade = await prisma.unidadeFranquia.findUnique({
+      where: { slugSubdominio: slug },
+      select: {
+        nomeFantasia: true,
+        whatsappContato: true,
+        chavePixPadrao: true,
+        statusContrato: true,
+        enderecoUnidade: true,
+      },
+    })
+    return unidade
   } catch {
     return null
   }
