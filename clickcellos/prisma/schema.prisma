@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  Master
+  Franqueado
+  Tecnico
+  Motoboy
+}
+
+enum StatusContrato {
+  Ativo
+  Bloqueado
+}
+
+enum StatusOS {
+  Recebido
+  Triagem
+  AguardandoOrcamento
+  AguardandoCliente
+  AguardandoPeca
+  NaBancada
+  EmTestes
+  Higienizacao
+  ProntoParaEntrega
+  Finalizado
+}
+
+enum MetodoPagamento {
+  AindaNaoPago
+  PIX
+  CartaoDeCredito
+  CartaoDeDebito
+  Dinheiro
+  LinkExterno
+}
+
+enum OrigemLead {
+  Instagram
+  GoogleAds
+  Indicacao
+  PassagemNaLoja
+}
+
+model UnidadeFranquia {
+  id                Int       @id @default(autoincrement())
+  nomeFantasia      String    @map("nome_fantasia")
+  slugSubdominio    String    @unique @map("slug_subdominio")
+  whatsappContato   String    @map("whatsapp_contato")
+  chavePixPadrao    String?   @map("chave_pix_padrao")
+  statusContrato    StatusContrato @default(Ativo) @map("status_contrato")
+  enderecoUnidade   String?   @map("endereco_unidade")
+  dataCadastro      DateTime  @default(now()) @map("data_cadastro")
+
+  usuarios        Usuario[]
+  clientes        Cliente[]
+  ordensServico   OrdemServico[]
+
+  @@map("unidades_franquias")
+}
+
+model Usuario {
+  id          Int      @id @default(autoincrement())
+  idUnidade   Int?     @map("id_unidade")
+  nome        String
+  email       String   @unique
+  senhaHash   String   @map("senha_hash")
+  role        Role     @default(Tecnico)
+  telefone    String?
+  ativo       Boolean  @default(true)
+
+  unidade     UnidadeFranquia? @relation(fields: [idUnidade], references: [id])
+  ordensTecnico   OrdemServico[] @relation("TecnicoOrdens")
+  ordensMotoboy   OrdemServico[] @relation("MotoboyOrdens")
+  logs        StatusLog[]
+  assinaturas AssinaturaDigital[]
+
+  @@map("usuarios")
+}
+
+model Cliente {
+  id                    Int         @id @default(autoincrement())
+  idUnidade             Int         @map("id_unidade")
+  nomeCompleto          String      @map("nome_completo")
+  whatsapp              String
+  enderecoRua           String?     @map("endereco_rua")
+  enderecoNumero        String?     @map("endereco_numero")
+  enderecoBairro        String?     @map("endereco_bairro")
+  enderecoCidade        String?     @map("endereco_cidade")
+  enderecoPontoRef      String?     @map("endereco_ponto_referencia")
+  dataAniversario       DateTime?   @map("data_aniversario")
+  origemLead            OrigemLead  @default(Instagram) @map("origem_lead")
+  observacoesInternas   String?     @map("observacoes_internas")
+  dataCadastro          DateTime    @default(now()) @map("data_cadastro")
+
+  unidade   UnidadeFranquia @relation(fields: [idUnidade], references: [id])
+  aparelhos Aparelho[]
+
+  @@map("clientes")
+}
+
+model Aparelho {
+  id          Int     @id @default(autoincrement())
+  idCliente   Int     @map("id_cliente")
+  marca       String
+  modelo      String
+  cor         String?
+  imeiSerial  String? @unique @map("imei_serial")
+
+  cliente     Cliente       @relation(fields: [idCliente], references: [id])
+  ordensServico OrdemServico[]
+
+  @@map("aparelhos")
+}
+
+model OrdemServico {
+  id                      Int              @id @default(autoincrement())
+  idOS                    String           @unique @map("id_os")
+  idUnidade               Int              @map("id_unidade")
+  idAparelho              Int              @map("id_aparelho")
+  idTecnicoResponsavel    Int?             @map("id_tecnico_responsavel")
+  idMotoboyResponsavel    Int?             @map("id_motoboy_responsavel")
+  sintomaReclamado        String           @map("sintoma_reclamado")
+  statusOS                StatusOS         @default(Recebido) @map("status_os")
+  dataAbertura            DateTime         @default(now()) @map("data_abertura")
+  dataFechamento          DateTime?        @map("data_fechamento")
+  fotosChecklistEntrada   String[]         @map("fotos_checklist_entrada")
+  precoOrcadoCliente      Decimal?         @map("preco_orcado_cliente")
+  custoPeca               Decimal?         @map("custo_peca")
+  custoMaoObraTecnico     Decimal?         @map("custo_mao_obra_tecnico")
+  metodoPagamentoRegistro MetodoPagamento  @default(AindaNaoPago) @map("metodo_pagamento_registro")
+  faceIDBiometria         Boolean          @default(false) @map("face_id_biometria")
+  touchscreen             Boolean          @default(false)
+  conexaoWiFi             Boolean          @default(false) @map("conexao_wi_fi")
+  microfone               Boolean          @default(false)
+  altoFalantes            Boolean          @default(false) @map("alto_falantes")
+  conectorCarga           Boolean          @default(false) @map("conector_carga")
+  laudoTecnico            String?          @map("laudo_tecnico")
+  dataPrevisaoEntrega     DateTime?        @map("data_previsao_entrega")
+  ultimaAtualizacaoStatus DateTime         @default(now()) @map("ultima_atualizacao_status")
+
+  unidade     UnidadeFranquia @relation(fields: [idUnidade], references: [id])
+  aparelho    Aparelho        @relation(fields: [idAparelho], references: [id])
+  tecnico     Usuario?        @relation("TecnicoOrdens", fields: [idTecnicoResponsavel], references: [id])
+  motoboy     Usuario?        @relation("MotoboyOrdens", fields: [idMotoboyResponsavel], references: [id])
+  logs        StatusLog[]
+  assinaturas AssinaturaDigital[]
+
+  @@map("ordens_servico")
+}
+
+model StatusLog {
+  id              Int      @id @default(autoincrement())
+  idOS            String   @map("id_os")
+  statusAnterior  StatusOS @map("status_anterior")
+  statusNovo      StatusOS @map("status_novo")
+  alteradoPor     Int      @map("alterado_por")
+  timestamp       DateTime @default(now())
+
+  ordem    OrdemServico @relation(fields: [idOS], references: [idOS])
+  usuario  Usuario      @relation(fields: [alteradoPor], references: [id])
+
+  @@map("status_log")
+}
+
+model AssinaturaDigital {
+  id                 Int      @id @default(autoincrement())
+  idOS               String   @map("id_os")
+  idMotoboy          Int      @map("id_motoboy")
+  urlAssinatura      String   @map("url_assinatura")
+  gpsLatitude        Float?   @map("gps_latitude")
+  gpsLongitude       Float?   @map("gps_longitude")
+  ipConexao          String?  @map("ip_conexao")
+  modeloDispositivo   String?  @map("modelo_dispositivo")
+  dataHora           DateTime @default(now()) @map("data_hora")
+
+  ordem   OrdemServico @relation(fields: [idOS], references: [idOS])
+  motoboy Usuario      @relation(fields: [idMotoboy], references: [id])
+
+  @@map("assinaturas_digitais")
+}
