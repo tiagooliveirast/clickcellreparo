@@ -4,11 +4,19 @@ import { PrismaPg } from "@prisma/adapter-pg"
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 
 function createPrismaClient() {
-  const adapter = process.env.DATABASE_URL
-    ? new PrismaPg({ connectionString: process.env.DATABASE_URL })
+  const url = process.env.DATABASE_URL
+  if (!url) return new PrismaClient({} as any)
+
+  const ssl = url.includes("supabase.co")
+    ? { rejectUnauthorized: false }
     : undefined
 
-  return new PrismaClient(adapter ? { adapter } : undefined as any)
+  const adapter = new PrismaPg({
+    connectionString: url,
+    ssl,
+  })
+
+  return new PrismaClient({ adapter })
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient()
