@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, ReactNode } from "react"
+import { useState, useEffect, ReactNode } from "react"
 import { useSession } from "next-auth/react"
-import { redirect } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Sidebar } from "./Sidebar"
 import { Header } from "./Header"
 import { Role } from "@/types"
@@ -19,6 +19,13 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { data: session, status } = useSession()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (status === "unauthenticated" || !session?.user) {
+      router.push("/login")
+    }
+  }, [status, session, router])
 
   if (status === "loading") {
     return (
@@ -29,7 +36,7 @@ export function DashboardLayout({
   }
 
   if (status === "unauthenticated" || !session?.user) {
-    redirect("/login")
+    return null
   }
 
   const user = session.user

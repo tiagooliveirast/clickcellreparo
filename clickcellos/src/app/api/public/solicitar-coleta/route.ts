@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { generateOSId } from "@/lib/utils"
+import { getUnidadeBySlug, findOrCreateCliente, createAparelho, createOrdemServico, checkOSExists } from "@/lib/public-db"
 
 export async function POST(request: Request) {
   const body = await request.json()
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Campos obrigatórios faltando" }, { status: 400 })
   }
 
-  const unidade = await prisma.unidadeFranquia.findUnique({ where: { slugSubdominio: slug } })
+  const unidade = await getUnidadeBySlug(slug)
   if (!unidade) return NextResponse.json({ error: "Unidade não encontrada" }, { status: 404 })
 
   if (unidade.statusContrato !== "Ativo") {
@@ -19,55 +19,37 @@ export async function POST(request: Request) {
 
   let idOS = generateOSId()
   let tentativas = 0
-  while (await prisma.ordemServico.findUnique({ where: { idOS } })) {
+  while (await checkOSExists(idOS)) {
     idOS = generateOSId()
     tentativas++
     if (tentativas > 10) return NextResponse.json({ error: "Erro ao gerar ID" }, { status: 500 })
   }
 
-  const resultado = await prisma.$transaction(async (tx: any) => {
-    let cliente = await tx.cliente.findFirst({
-      where: { idUnidade: unidade.id, whatsapp },
-    })
-
-    if (!cliente) {
-      cliente = await tx.cliente.create({
-        data: {
-          idUnidade: unidade.id,
-          nomeCompleto,
-          whatsapp,
-          enderecoRua,
-          enderecoNumero,
-          enderecoBairro,
-          enderecoCidade,
-          enderecoPontoRef,
-          origemLead: "PassagemNaLoja",
-        },
-      })
-    }
-
-    const aparelho = await tx.aparelho.create({
-      data: {
-        idCliente: cliente.id,
-        marca,
-        modelo,
-        cor,
-        imeiSerial,
-      },
-    })
-
-    const ordem = await tx.ordemServico.create({
-      data: {
-        idOS,
-        idUnidade: unidade.id,
-        idAparelho: aparelho.id,
-        sintomaReclamado,
-        statusOS: "Recebido",
-      },
-    })
-
-    return { idOS: ordem.idOS }
+  const cliente = await findOrCreateCliente({
+    idUnidade: unidade.id,
+    nomeCompleto,
+    whatsapp,
+    enderecoRua,
+    enderecoNumero,
+    enderecoBairro,
+    enderecoCidade,
+    enderecoPontoRef,
   })
 
-  return NextResponse.json({ success: true, idOS: resultado.idOS }, { status: 201 })
+  const aparelho = await createAparelho({
+    idCliente: cliente.id,
+    marca,
+    modelo,
+    cor,
+    imeiSerial,
+  })
+
+  const ordem = await createOrdemServico({
+    idOS,
+    idUnidade: unidade.id,
+    idAparelho: aparelho.id,
+    sintomaReclamado,
+  })
+
+  return NextResponse.json({ success: true, idOS: ordem.idOS }, { status: 201 })
 }

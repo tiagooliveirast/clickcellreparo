@@ -40,8 +40,8 @@ export default function FranqueadoDashboard() {
     try {
       const res = await fetch("/api/ordens-servico")
       if (res.ok) setOrdens(await res.json())
-    } catch (err) {
-      console.error(err)
+    } catch {
+      setOrdens([])
     } finally {
       setLoading(false)
     }

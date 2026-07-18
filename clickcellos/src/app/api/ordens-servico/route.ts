@@ -23,11 +23,11 @@ export async function GET() {
       unidade: {
         select: { nomeFantasia: true, slugSubdominio: true },
       },
-    } as any,
+    },
     orderBy: { dataAbertura: "desc" },
   })
 
-  const ordensSerialized = ordens.map((o: any) => ({
+  const ordensSerialized = ordens.map((o) => ({
     ...o,
     precoOrcadoCliente: Number(o.precoOrcadoCliente) || null,
     custoPeca: Number(o.custoPeca) || null,

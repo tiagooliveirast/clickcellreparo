@@ -68,8 +68,8 @@ export default function MasterDashboard() {
       ])
       if (unidadesRes.ok) setUnidades(await unidadesRes.json())
       if (ordensRes.ok) setOrdens(await ordensRes.json())
-    } catch (err) {
-      console.error(err)
+    } catch {
+      setFormError("Erro ao carregar dados")
     } finally {
       setLoading(false)
     }

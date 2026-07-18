@@ -8,7 +8,6 @@ import { Card } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Select } from "@/components/ui/Select"
-import { Spinner } from "@/components/ui/Spinner"
 
 const diagnosticosSimulados = [
   "Possível problema na placa lógica. Recomenda-se microscopia para identificar solda fria.",
@@ -69,7 +68,7 @@ export default function AIPage() {
       if (res.ok) {
         const data = await res.json()
         setOrdemList(
-          data.map((o: any) => ({
+          data.map((o: { idOS: string; cliente?: { nomeCompleto: string } }) => ({
             idOS: o.idOS,
             cliente: o.cliente?.nomeCompleto,
           }))

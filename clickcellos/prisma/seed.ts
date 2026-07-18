@@ -1,4 +1,4 @@
-import { PrismaClient } from "../src/generated/prisma/client"
+import { PrismaClient, StatusOS } from "../src/generated/prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 import bcrypt from "bcryptjs"
 
@@ -154,7 +154,7 @@ async function main() {
     },
   })
 
-  await prisma.ordemServico.upsert({
+  const os1 = await prisma.ordemServico.upsert({
     where: { idOS: "OS-2026-0001" },
     update: {},
     create: {
@@ -171,6 +171,19 @@ async function main() {
       fotosChecklistEntrada: [],
     },
   })
+  // StatusLog OS-2026-0001
+  const logsOS1: { statusAnterior: StatusOS; statusNovo: StatusOS; alteradoPor: number }[] = [
+    { statusAnterior: "Recebido" as StatusOS, statusNovo: "Triagem" as StatusOS, alteradoPor: tecnicoSalvador.id },
+    { statusAnterior: "Triagem" as StatusOS, statusNovo: "AguardandoOrcamento" as StatusOS, alteradoPor: tecnicoSalvador.id },
+    { statusAnterior: "AguardandoOrcamento" as StatusOS, statusNovo: "AguardandoCliente" as StatusOS, alteradoPor: tecnicoSalvador.id },
+  ]
+  for (const log of logsOS1) {
+    await prisma.statusLog.upsert({
+      where: { id: logsOS1.indexOf(log) + 1 },
+      update: {},
+      create: { idOS: "OS-2026-0001", ...log, timestamp: new Date("2026-03-15T10:00:00") },
+    })
+  }
 
   const cliente2 = await prisma.cliente.upsert({
     where: { id: 2 },
@@ -199,7 +212,7 @@ async function main() {
     },
   })
 
-  await prisma.ordemServico.upsert({
+  const os2 = await prisma.ordemServico.upsert({
     where: { idOS: "OS-2026-0002" },
     update: {},
     create: {
@@ -214,6 +227,20 @@ async function main() {
       custoMaoObraTecnico: 50,
     },
   })
+  // StatusLog OS-2026-0002
+  const logsOS2: { statusAnterior: StatusOS; statusNovo: StatusOS; alteradoPor: number }[] = [
+    { statusAnterior: "Recebido" as StatusOS, statusNovo: "Triagem" as StatusOS, alteradoPor: tecnicoSalvador.id },
+    { statusAnterior: "Triagem" as StatusOS, statusNovo: "AguardandoOrcamento" as StatusOS, alteradoPor: tecnicoSalvador.id },
+    { statusAnterior: "AguardandoOrcamento" as StatusOS, statusNovo: "AguardandoCliente" as StatusOS, alteradoPor: tecnicoSalvador.id },
+    { statusAnterior: "AguardandoCliente" as StatusOS, statusNovo: "NaBancada" as StatusOS, alteradoPor: tecnicoSalvador.id },
+  ]
+  for (const [i, log] of logsOS2.entries()) {
+    await prisma.statusLog.upsert({
+      where: { id: 10 + i + 1 },
+      update: {},
+      create: { idOS: "OS-2026-0002", ...log, timestamp: new Date("2026-03-16T09:00:00") },
+    })
+  }
 
   const cliente3 = await prisma.cliente.upsert({
     where: { id: 3 },
@@ -241,7 +268,7 @@ async function main() {
     },
   })
 
-  await prisma.ordemServico.upsert({
+  const os3 = await prisma.ordemServico.upsert({
     where: { idOS: "OS-2026-0003" },
     update: {},
     create: {
@@ -250,6 +277,17 @@ async function main() {
       idAparelho: aparelho3.id,
       sintomaReclamado: "Bateria descarregando muito rápido. Dura menos de 2 horas em uso moderado.",
       statusOS: "Recebido",
+    },
+  })
+  await prisma.statusLog.upsert({
+    where: { id: 20 },
+    update: {},
+    create: {
+      idOS: "OS-2026-0003",
+      statusAnterior: "Recebido" as StatusOS,
+      statusNovo: "Recebido" as StatusOS,
+      alteradoPor: tecnicoSalvador.id,
+      timestamp: new Date("2026-03-17T14:00:00"),
     },
   })
 

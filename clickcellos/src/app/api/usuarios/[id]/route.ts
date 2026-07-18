@@ -75,7 +75,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const data: any = {}
   if (nome !== undefined) data.nome = nome
   if (email !== undefined) data.email = email
-  if (role !== undefined) data.role = role
+  if (role !== undefined) {
+    if (userRole !== "Master") return NextResponse.json({ error: "Apenas Master pode alterar permissões" }, { status: 403 })
+    data.role = role
+  }
   if (telefone !== undefined) data.telefone = telefone
   if (ativo !== undefined) data.ativo = ativo
   if (senha) data.senhaHash = await bcrypt.hash(senha, 10)
@@ -111,7 +114,14 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     if (target.idUnidade !== sessionIdUnidade) return NextResponse.json({ error: "Acesso negado" }, { status: 403 })
   }
 
-  await prisma.usuario.delete({ where: { id: userId } })
+  try {
+    await prisma.usuario.delete({ where: { id: userId } })
+  } catch (err: any) {
+    if (err?.code === "P2003") {
+      return NextResponse.json({ error: "Usuário possui registros vinculados. Remova os vínculos antes de excluir." }, { status: 409 })
+    }
+    return NextResponse.json({ error: "Erro ao excluir usuário" }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true })
 }

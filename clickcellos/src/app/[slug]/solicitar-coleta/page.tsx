@@ -2,7 +2,7 @@ import { notFound } from "next/navigation"
 import { FiSmartphone } from "react-icons/fi"
 import Link from "next/link"
 import { SolicitarColetaForm } from "@/components/publico/SolicitarColetaForm"
-import { prisma } from "@/lib/prisma"
+import { getUnidadeBySlug } from "@/lib/public-db"
 
 interface UnidadeData {
   nomeFantasia: string
@@ -12,15 +12,13 @@ interface UnidadeData {
 
 async function getUnidade(slug: string): Promise<UnidadeData | null> {
   try {
-    const unidade = await prisma.unidadeFranquia.findUnique({
-      where: { slugSubdominio: slug },
-      select: {
-        nomeFantasia: true,
-        whatsappContato: true,
-        statusContrato: true,
-      },
-    })
-    return unidade
+    const unidade = await getUnidadeBySlug(slug)
+    if (!unidade) return null
+    return {
+      nomeFantasia: unidade.nomeFantasia,
+      whatsappContato: unidade.whatsappContato,
+      statusContrato: unidade.statusContrato,
+    }
   } catch {
     return null
   }

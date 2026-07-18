@@ -39,7 +39,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { id } = await params
   const body = await request.json()
-  const { novoStatus, idUsuario } = body as { novoStatus: StatusOS; idUsuario: number }
+  const { novoStatus } = body as { novoStatus: StatusOS }
+  const idUsuario = parseInt(session.user.id)
 
   if (!novoStatus || !idUsuario) {
     return NextResponse.json({ error: "Campos obrigatórios faltando" }, { status: 400 })

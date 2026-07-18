@@ -1,5 +1,22 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { getOrdemServico, getClienteByWhatsapp, getAparelhosByClienteIds, getOrdemByAparelhoIds } from "@/lib/public-db"
+
+interface OrdemResult {
+  idOS?: string
+  id_os?: string
+  statusOS?: string
+  status_os?: string
+  precoOrcadoCliente?: number | string | null
+  preco_orcado_cliente?: number | string | null
+  custoPeca?: number | string | null
+  custo_peca?: number | string | null
+  custoMaoObraTecnico?: number | string | null
+  custo_mao_obra_tecnico?: number | string | null
+  aparelho?: {
+    cliente?: { nomeCompleto?: string; whatsapp?: string }
+  } | null
+  [key: string]: unknown
+}
 
 export async function POST(request: Request) {
   const body = await request.json()
@@ -11,64 +28,33 @@ export async function POST(request: Request) {
 
   const isOS = consulta.startsWith("OS-")
 
-  let ordem: any
+  let ordem: OrdemResult | null
 
   if (isOS) {
-    ordem = await prisma.ordemServico.findFirst({
-      where: { idOS: consulta },
-      include: {
-        aparelho: {
-          include: {
-            cliente: {
-              select: { nomeCompleto: true, whatsapp: true },
-            },
-          },
-        },
-        unidade: {
-          select: { nomeFantasia: true, slugSubdominio: true, whatsappContato: true },
-        },
-      } as any,
-    })
+    ordem = await getOrdemServico(consulta) as OrdemResult | null
   } else {
-    const clientes = await prisma.cliente.findMany({
-      where: { whatsapp: { equals: consulta } },
-      select: { id: true },
-    })
+    const clientes = await getClienteByWhatsapp(consulta)
 
-    if (clientes.length === 0) {
+    if (!clientes || clientes.length === 0) {
       return NextResponse.json({ error: "Ordem não encontrada" }, { status: 404 })
     }
 
-    const aparelhos = await prisma.aparelho.findMany({
-      where: { idCliente: { in: clientes.map((c: any) => c.id) } },
-      select: { id: true },
-    })
+    const aparelhos = await getAparelhosByClienteIds(clientes.map((c: { id: number }) => c.id))
 
-    ordem = await prisma.ordemServico.findFirst({
-      where: { idAparelho: { in: aparelhos.map((a: any) => a.id) } },
-      include: {
-        aparelho: {
-          include: {
-            cliente: {
-              select: { nomeCompleto: true, whatsapp: true },
-            },
-          },
-        },
-        unidade: {
-          select: { nomeFantasia: true, slugSubdominio: true, whatsappContato: true },
-        },
-      } as any,
-      orderBy: { dataAbertura: "desc" },
-    })
+    if (!aparelhos || aparelhos.length === 0) {
+      return NextResponse.json({ error: "Ordem não encontrada" }, { status: 404 })
+    }
+
+    ordem = await getOrdemByAparelhoIds(aparelhos.map((a: { id: number }) => a.id)) as OrdemResult | null
   }
 
   if (!ordem) return NextResponse.json({ error: "Ordem não encontrada" }, { status: 404 })
 
   const resultado = {
     ...ordem,
-    precoOrcadoCliente: Number(ordem.precoOrcadoCliente) || null,
-    custoPeca: Number(ordem.custoPeca) || null,
-    custoMaoObraTecnico: Number(ordem.custoMaoObraTecnico) || null,
+    precoOrcadoCliente: Number(ordem.preco_orcado_cliente ?? ordem.precoOrcadoCliente) || null,
+    custoPeca: Number(ordem.custo_peca ?? ordem.custoPeca) || null,
+    custoMaoObraTecnico: Number(ordem.custo_mao_obra_tecnico ?? ordem.custoMaoObraTecnico) || null,
     cliente: ordem.aparelho?.cliente || null,
   }
 

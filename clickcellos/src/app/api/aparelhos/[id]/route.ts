@@ -44,6 +44,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const body = await request.json()
   const { idCliente, marca, modelo, cor, imeiSerial } = body
 
+  if (idCliente !== undefined) {
+    const novoCliente = await prisma.cliente.findUnique({ where: { id: idCliente }, select: { idUnidade: true } })
+    if (!novoCliente) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 })
+    if (session.user.role !== "Master" && novoCliente.idUnidade !== session.user.idUnidade) {
+      return NextResponse.json({ error: "Cliente pertence a outra unidade" }, { status: 403 })
+    }
+  }
+
   if (imeiSerial) {
     const existente = await prisma.aparelho.findFirst({
       where: { imeiSerial, NOT: { id: aparelhoId } },
@@ -83,7 +91,14 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 })
   }
 
-  await prisma.aparelho.delete({ where: { id: aparelhoId } })
+  try {
+    await prisma.aparelho.delete({ where: { id: aparelhoId } })
+  } catch (err: any) {
+    if (err?.code === "P2003") {
+      return NextResponse.json({ error: "Aparelho possui ordens de serviço vinculadas. Remova os vínculos antes de excluir." }, { status: 409 })
+    }
+    return NextResponse.json({ error: "Erro ao excluir aparelho" }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true })
 }

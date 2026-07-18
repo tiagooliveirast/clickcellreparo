@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/Input"
 import { Spinner } from "@/components/ui/Spinner"
 import { Table } from "@/components/ui/Table"
 import { formatCurrency, formatDateTime } from "@/lib/utils"
-import { METODO_PAGAMENTO_LABELS } from "@/types"
+import { METODO_PAGAMENTO_LABELS, StatusOS } from "@/types"
 import type { Column } from "@/components/ui/Table"
 
 interface Ordem {
@@ -25,7 +25,7 @@ interface Ordem {
   metodoPagamentoRegistro: string
   cliente?: { nomeCompleto: string }
   unidade?: { nomeFantasia: string }
-  statusOS: string
+  statusOS: StatusOS
 }
 
 type Periodo = "hoje" | "semana" | "mes" | "custom"

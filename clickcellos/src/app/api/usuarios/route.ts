@@ -27,21 +27,26 @@ export async function POST(request: Request) {
   if (!session?.user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
 
   const body = await request.json()
-  const { nome, email, senha, role, telefone } = body
+  const { nome, email, senha, role, telefone, idUnidade: bodyIdUnidade } = body
 
   if (!nome || !email || !senha || !role) {
     return NextResponse.json({ error: "Campos obrigatórios faltando" }, { status: 400 })
   }
 
   const userRole = session.user.role
-  const idUnidade = session.user.idUnidade
+  let idUnidade = session.user.idUnidade
+
+  if (userRole === "Master") {
+    if (!bodyIdUnidade) return NextResponse.json({ error: "Master deve informar idUnidade" }, { status: 400 })
+    idUnidade = bodyIdUnidade
+    const unidade = await prisma.unidadeFranquia.findUnique({ where: { id: idUnidade } })
+    if (!unidade) return NextResponse.json({ error: "Unidade não encontrada" }, { status: 404 })
+  } else if (userRole !== "Franqueado") {
+    return NextResponse.json({ error: "Sem permissão para criar usuários" }, { status: 403 })
+  }
 
   if (userRole === "Franqueado" && (role !== "Tecnico" && role !== "Motoboy")) {
     return NextResponse.json({ error: "Franqueado só pode criar Técnico ou Motoboy" }, { status: 403 })
-  }
-
-  if (userRole !== "Master" && userRole !== "Franqueado") {
-    return NextResponse.json({ error: "Sem permissão para criar usuários" }, { status: 403 })
   }
 
   const emailExistente = await prisma.usuario.findUnique({ where: { email } })

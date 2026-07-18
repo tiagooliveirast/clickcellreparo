@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { FiSmartphone, FiSearch, FiPackage } from "react-icons/fi"
+import { FiSmartphone, FiSearch, FiPackage, FiCheckCircle } from "react-icons/fi"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { Input } from "@/components/ui/Input"
@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/Button"
 import { Card } from "@/components/ui/Card"
 import { Spinner } from "@/components/ui/Spinner"
 import { Badge } from "@/components/ui/Badge"
-import { formatDateTime } from "@/lib/utils"
+import { Modal } from "@/components/ui/Modal"
+import { formatDateTime, formatCurrency } from "@/lib/utils"
 import { STATUS_OS_LABELS } from "@/types"
 import type { StatusOS } from "@/types"
 
@@ -25,6 +26,7 @@ interface Resultado {
   dataAbertura: string
   dataPrevisaoEntrega: string | null
   sintomaReclamado: string
+  precoOrcadoCliente: number | null
   logs: StatusLog[]
   cliente?: { nomeCompleto: string }
   aparelho?: { marca: string; modelo: string }
@@ -38,6 +40,11 @@ export default function RastrearPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
+  const [approveModal, setApproveModal] = useState(false)
+  const [approveLoading, setApproveLoading] = useState(false)
+  const [approveSuccess, setApproveSuccess] = useState(false)
+  const [approveError, setApproveError] = useState("")
+
   const handleSearch = async () => {
     if (!query.trim()) return
     setLoading(true)
@@ -47,7 +54,7 @@ export default function RastrearPage() {
       const res = await fetch("/api/public/rastrear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idOS: query.trim(), slug }),
+        body: JSON.stringify({ consulta: query.trim() }),
       })
       if (!res.ok) {
         const data = await res.json()
@@ -59,6 +66,31 @@ export default function RastrearPage() {
       setError("Erro ao conectar. Tente novamente.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleApproveRepair = async () => {
+    if (!resultado) return
+    setApproveLoading(true)
+    setApproveError("")
+    try {
+      const res = await fetch("/api/public/approve-repair", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idOS: resultado.idOS, confirmacao: resultado.idOS }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setApproveError(data.error || "Erro ao aprovar reparo")
+        return
+      }
+      setApproveSuccess(true)
+      setApproveModal(false)
+      setResultado({ ...resultado, statusOS: "NaBancada" })
+    } catch {
+      setApproveError("Erro ao conectar. Tente novamente.")
+    } finally {
+      setApproveLoading(false)
     }
   }
 
@@ -126,6 +158,42 @@ export default function RastrearPage() {
                 </div>
               </Card>
 
+              {resultado.statusOS === "AguardandoCliente" && !approveSuccess && (
+                <Card>
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-green-700">Orçamento Disponível</h4>
+                    <p className="text-sm text-gray-600">
+                      Seu orçamento foi aprovado e estamos aguardando sua confirmação para iniciar o reparo.
+                    </p>
+                    {resultado.precoOrcadoCliente && (
+                      <p className="text-lg font-bold text-gray-900">
+                        Valor: {formatCurrency(resultado.precoOrcadoCliente)}
+                      </p>
+                    )}
+                    <Button
+                      onClick={() => setApproveModal(true)}
+                      className="w-full"
+                    >
+                      <FiCheckCircle size={18} /> Aprovar Reparo
+                    </Button>
+                  </div>
+                </Card>
+              )}
+
+              {approveSuccess && (
+                <Card>
+                  <div className="space-y-2 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                      <FiCheckCircle size={24} className="text-green-600" />
+                    </div>
+                    <h4 className="font-semibold text-green-700">Reparo Aprovado!</h4>
+                    <p className="text-sm text-gray-600">
+                      Seu reparo foi aprovado e já está na fila da bancada técnica. Acompanhe o status pelo código da O.S.
+                    </p>
+                  </div>
+                </Card>
+              )}
+
               <Card>
                 <h4 className="mb-3 font-semibold text-gray-900">Andamento</h4>
                 <div className="space-y-3">
@@ -154,6 +222,32 @@ export default function RastrearPage() {
           )}
         </div>
       </main>
+
+      <Modal
+        isOpen={approveModal}
+        onClose={() => { setApproveModal(false); setApproveError("") }}
+        title="Aprovar Reparo"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Ao aprovar o reparo, você autoriza a Click Cell a realizar os serviços descritos no orçamento.
+          </p>
+          {resultado?.precoOrcadoCliente && (
+            <p className="text-center text-2xl font-bold text-gray-900">
+              {formatCurrency(resultado.precoOrcadoCliente)}
+            </p>
+          )}
+          {approveError && <p className="text-sm text-red-500">{approveError}</p>}
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setApproveModal(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleApproveRepair} loading={approveLoading}>
+              Confirmar e Aprovar
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

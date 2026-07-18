@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { getOrdemServico, updateOrdemStatus } from "@/lib/public-db"
 
 export async function POST(request: Request) {
   const body = await request.json()
@@ -13,42 +13,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Confirmação inválida" }, { status: 400 })
   }
 
-  const ordem = await prisma.ordemServico.findUnique({ where: { idOS } })
+  const ordem = await getOrdemServico(idOS)
   if (!ordem) return NextResponse.json({ error: "Ordem não encontrada" }, { status: 404 })
 
-  if (ordem.statusOS !== "AguardandoCliente") {
-    return NextResponse.json({ error: `Não é possível aprovar o reparo no status ${ordem.statusOS}` }, { status: 400 })
+  const statusAtual = ordem.status_os ?? ordem.statusOS
+  if (statusAtual !== "AguardandoCliente") {
+    return NextResponse.json({ error: `Não é possível aprovar o reparo no status ${statusAtual}` }, { status: 400 })
   }
 
-  const masterUser = await prisma.usuario.findFirst({
-    where: { role: "Master" },
-    select: { id: true },
-  })
-
-  const alteradoPor = masterUser?.id ?? 0
-
-  const [updated] = await prisma.$transaction([
-    prisma.ordemServico.update({
-      where: { idOS },
-      data: {
-        statusOS: "NaBancada",
-        ultimaAtualizacaoStatus: new Date(),
-      },
-    }),
-    prisma.statusLog.create({
-      data: {
-        idOS: ordem.idOS,
-        statusAnterior: ordem.statusOS,
-        statusNovo: "NaBancada",
-        alteradoPor,
-      },
-    }),
-  ])
+  const updated = await updateOrdemStatus(idOS, "NaBancada", statusAtual, 0)
 
   return NextResponse.json({
     ...updated,
-    precoOrcadoCliente: updated.precoOrcadoCliente ? Number(updated.precoOrcadoCliente) : null,
-    custoPeca: updated.custoPeca ? Number(updated.custoPeca) : null,
-    custoMaoObraTecnico: updated.custoMaoObraTecnico ? Number(updated.custoMaoObraTecnico) : null,
+    precoOrcadoCliente: updated.preco_orcado_cliente ? Number(updated.preco_orcado_cliente) : updated.precoOrcadoCliente ? Number(updated.precoOrcadoCliente) : null,
+    custoPeca: updated.custo_peca ? Number(updated.custo_peca) : updated.custoPeca ? Number(updated.custoPeca) : null,
+    custoMaoObraTecnico: updated.custo_mao_obra_tecnico ? Number(updated.custo_mao_obra_tecnico) : updated.custoMaoObraTecnico ? Number(updated.custoMaoObraTecnico) : null,
   })
 }

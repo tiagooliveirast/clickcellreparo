@@ -38,7 +38,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       motoboy: {
         select: { nome: true },
       },
-    } as any,
+    },
   })
 
   if (!ordem) return NextResponse.json({ error: "Ordem não encontrada" }, { status: 404 })
@@ -47,14 +47,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 })
   }
 
-  const o = ordem as any
   const ordemSerialized = {
-    ...o,
-    precoOrcadoCliente: Number(o.precoOrcadoCliente) || null,
-    custoPeca: Number(o.custoPeca) || null,
-    custoMaoObraTecnico: Number(o.custoMaoObraTecnico) || null,
-    cliente: o.aparelho?.cliente || null,
-    aparelho: o.aparelho ? { marca: o.aparelho.marca, modelo: o.aparelho.modelo, cor: o.aparelho.cor, imeiSerial: o.aparelho.imeiSerial } : null,
+    ...ordem,
+    precoOrcadoCliente: Number(ordem.precoOrcadoCliente) || null,
+    custoPeca: Number(ordem.custoPeca) || null,
+    custoMaoObraTecnico: Number(ordem.custoMaoObraTecnico) || null,
+    cliente: ordem.aparelho?.cliente || null,
+    aparelho: ordem.aparelho ? { marca: ordem.aparelho.marca, modelo: ordem.aparelho.modelo, cor: ordem.aparelho.cor, imeiSerial: ordem.aparelho.imeiSerial } : null,
   }
 
   return NextResponse.json(ordemSerialized)
@@ -78,6 +77,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   const body = await request.json()
   const { idAparelho, idTecnicoResponsavel, idMotoboyResponsavel, sintomaReclamado, precoOrcadoCliente, custoPeca, custoMaoObraTecnico, metodoPagamentoRegistro, laudoTecnico, dataPrevisaoEntrega, fotosChecklistEntrada } = body
+
+  if (idAparelho !== undefined) {
+    const novoAparelho = await prisma.aparelho.findUnique({
+      where: { id: idAparelho },
+      include: { cliente: { select: { idUnidade: true } } },
+    })
+    if (!novoAparelho) return NextResponse.json({ error: "Aparelho não encontrado" }, { status: 404 })
+    if (session.user.role !== "Master" && novoAparelho.cliente.idUnidade !== session.user.idUnidade) {
+      return NextResponse.json({ error: "Aparelho pertence a outra unidade" }, { status: 403 })
+    }
+  }
 
   const updated = await prisma.ordemServico.update({
     where: { id: ordem.id },
@@ -117,7 +127,15 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   })
   if (!ordem) return NextResponse.json({ error: "Ordem não encontrada" }, { status: 404 })
 
-  await prisma.ordemServico.delete({ where: { id: ordem.id } })
+  try {
+    await prisma.ordemServico.delete({ where: { id: ordem.id } })
+  } catch (err: unknown) {
+    const prismaErr = err as { code?: string }
+    if (prismaErr?.code === "P2003") {
+      return NextResponse.json({ error: "Ordem possui registros vinculados (logs, assinaturas). Remova os vínculos antes de excluir." }, { status: 409 })
+    }
+    return NextResponse.json({ error: "Erro ao excluir ordem" }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true })
 }
