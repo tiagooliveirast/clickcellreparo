@@ -14,13 +14,15 @@ function createPrismaClient() {
 
   const pool = new Pool({
     connectionString: url,
-    ...((isSupabase) && {
+    ...((isSupabase) && ({
       ssl: { rejectUnauthorized: false },
       ...(isVercel && {
         lookup: (host: string, opts: dns.LookupOptions, cb: (err: Error | null, address?: string, family?: number) => void) => {
           dns.lookup(host, { ...opts, all: true }, (err, addresses) => {
             if (err) return cb(err, undefined, undefined)
             const addrs = addresses as dns.LookupAddress[]
+            const v4 = addrs.find((a) => a.family === 4)
+            if (v4) return cb(null, v4.address, v4.family)
             const v6 = addrs.find((a) => a.family === 6)
             if (v6) return cb(null, v6.address, v6.family)
             if (addrs.length > 0) return cb(null, addrs[0].address, addrs[0].family)
@@ -28,7 +30,7 @@ function createPrismaClient() {
           })
         },
       }),
-    }),
+    })),
   })
 
   const adapter = new PrismaPg(pool)
