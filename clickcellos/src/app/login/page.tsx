@@ -1,24 +1,30 @@
 "use client"
 
-import { useState, FormEvent, Suspense } from "react"
-import { signIn } from "next-auth/react"
-import { useSearchParams } from "next/navigation"
+import { useState, FormEvent } from "react"
+import { loginAction } from "@/actions/login"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { FiSmartphone, FiMail, FiLock } from "react-icons/fi"
 
-function LoginForm() {
-  const searchParams = useSearchParams()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState(searchParams.get("error") ? "Email ou senha inválidos" : "")
+export default function LoginPage() {
+  const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
     setLoading(true)
-    await signIn("credentials", { email, password, redirect: true, callbackUrl: "/" })
+
+    const form = e.currentTarget
+    const formData = new FormData(form)
+    const result = await loginAction(formData)
+
+    if (result.success) {
+      window.location.href = "/"
+    } else {
+      setError(result.error ?? "Email ou senha inválidos")
+      setLoading(false)
+    }
   }
 
   return (
@@ -42,18 +48,16 @@ function LoginForm() {
             <Input
               label="Email"
               type="email"
+              name="email"
               placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
               icon={<FiMail size={18} />}
               required
             />
             <Input
               label="Senha"
               type="password"
+              name="password"
               placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
               icon={<FiLock size={18} />}
               required
             />
@@ -83,13 +87,5 @@ function LoginForm() {
         </p>
       </div>
     </div>
-  )
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
   )
 }
