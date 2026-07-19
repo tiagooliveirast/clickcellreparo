@@ -1,40 +1,24 @@
 "use client"
 
-import { useState, FormEvent } from "react"
+import { useState, FormEvent, Suspense } from "react"
 import { signIn } from "next-auth/react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { FiSmartphone, FiMail, FiLock } from "react-icons/fi"
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
+  const [error, setError] = useState(searchParams.get("error") ? "Email ou senha inválidos" : "")
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError("")
     setLoading(true)
-
-    try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      })
-
-      if (result?.error) {
-        setError("Email ou senha inválidos")
-        return
-      }
-
-      window.location.href = "/"
-    } catch {
-      setError("Erro ao conectar. Tente novamente.")
-    } finally {
-      setLoading(false)
-    }
+    await signIn("credentials", { email, password, redirect: true, callbackUrl: "/" })
   }
 
   return (
@@ -99,5 +83,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }
