@@ -2,13 +2,11 @@
 
 import { useState, FormEvent } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { FiSmartphone, FiMail, FiLock } from "react-icons/fi"
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -31,7 +29,7 @@ export default function LoginPage() {
         return
       }
 
-      router.push("/")
+      window.location.href = "/"
     } catch {
       setError("Erro ao conectar. Tente novamente.")
     } finally {
