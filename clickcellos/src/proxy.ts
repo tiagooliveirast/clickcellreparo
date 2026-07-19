@@ -36,8 +36,8 @@ export default function proxy(request: NextRequest) {
   }
 
   const token =
-    request.cookies.get("next-auth.session-token")?.value ||
-    request.cookies.get("__Secure-next-auth.session-token")?.value
+    request.cookies.get("__Secure-authjs.session-token")?.value ||
+    request.cookies.get("authjs.session-token")?.value
 
   if (!token) {
     const loginUrl = new URL("/login", request.url)
